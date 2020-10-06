@@ -116,6 +116,7 @@ public class OffsetStorageWriter {
 
         assert !flushing();
         toFlush = data;
+        log.info("to flush {}", toFlush);
         data = new HashMap<>();
         return true;
     }

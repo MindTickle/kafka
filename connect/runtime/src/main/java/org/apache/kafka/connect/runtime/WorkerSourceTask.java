@@ -366,21 +366,26 @@ class WorkerSourceTask extends WorkerTask {
                 producer.send(
                     producerRecord,
                     (recordMetadata, e) -> {
-                        if (e != null) {
-                            log.error("{} failed to send record to {}: ", WorkerSourceTask.this, topic, e);
-                            log.debug("{} Failed record: {}", WorkerSourceTask.this, preTransformRecord);
-                            producerSendException.compareAndSet(null, e);
-                        } else {
+                        if (e == null || e instanceof org.apache.kafka.common.errors.RecordTooLargeException) {
                             recordSent(producerRecord);
                             counter.completeRecord();
-                            log.trace("{} Wrote record successfully: topic {} partition {} offset {}",
-                                    WorkerSourceTask.this,
-                                    recordMetadata.topic(), recordMetadata.partition(),
-                                    recordMetadata.offset());
+                            if(recordMetadata != null) {
+                                log.trace("{} Wrote record successfully: topic {} partition {} offset {}",
+                                WorkerSourceTask.this,
+                                recordMetadata.topic(), recordMetadata.partition(),
+                                recordMetadata.offset());
+                            } else {
+                                log.error("commiting offset for large event {}", record);
+                            }
+                                
                             commitTaskRecord(preTransformRecord, recordMetadata);
                             if (isTopicTrackingEnabled) {
                                 recordActiveTopic(producerRecord.topic());
                             }
+                        } else {
+                            log.error("{} failed to send record to {}: ", WorkerSourceTask.this, topic, e);
+                            log.debug("{} Failed record: {}", WorkerSourceTask.this, preTransformRecord);
+                            producerSendException.compareAndSet(null, e);
                         }
                     });
                 lastSendFailed = false;
